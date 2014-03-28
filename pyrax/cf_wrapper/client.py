@@ -70,6 +70,11 @@ def handle_swiftclient_exception(fnc):
                 ret = fnc(self, *args, **kwargs)
                 return ret
             except _swift_client.ClientException as e:
+                # @rromero handle this one first, it's not really a problem
+                # where we need to retry or reauth
+                if e.http_status == 404:
+                    raise exc.NoSuchObject("The requested object/container "
+                            "does not exist.")
                 if attempts < AUTH_ATTEMPTS:
                     # Assume it is an auth failure. Re-auth and retry.
                     ### NOTE: This is a hack to get around an apparent bug
@@ -92,9 +97,6 @@ def handle_swiftclient_exception(fnc):
                     cont, fname = failed_upload.groups()
                     raise exc.UploadFailed("Upload of file '%(fname)s' to "
                             "container '%(cont)s' failed." % locals())
-                if e.http_status == 404:
-                    raise exc.NoSuchObject("The requested object/container "
-                            "does not exist.")
                 # Not handled; re-raise
                 raise
     return _wrapped
